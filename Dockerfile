@@ -13,9 +13,6 @@ RUN curl -L https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/fr
     chmod +x /usr/local/bin/frps && \
     rm -rf /tmp/frp_${FRP_VERSION}_linux_amd64
 
-# 复制配置文件
-COPY frps.ini /etc/frp/frps.ini
-
 # 暴露常用端口（你可以根据 frps.ini 的配置暴露更多）
 EXPOSE 7000 7500
 

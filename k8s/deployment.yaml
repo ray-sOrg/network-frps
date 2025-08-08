@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frps
+  template:
+    metadata:
+      labels:
+        app: frps
+    spec:
+      containers:
+        - name: frps
+          image: ccr.ccs.tencentyun.com/ray321/frps:0.63.0
+          ports:
+            - containerPort: 7000
+            - containerPort: 7500
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          livenessProbe:
+            tcpSocket:
+              port: 7000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 7000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/frp/frps.ini
+              subPath: frps.ini
+      volumes:
+        - name: config-volume
+          configMap:
+            name: frps-config
+            items:
+              - key: frps.ini
+                path: frps.ini
+      imagePullSecrets:
+        - name: tencent-registry-secret
