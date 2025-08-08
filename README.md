@@ -69,8 +69,8 @@ kubectl apply -f ingress.yaml
    - 仪表板：`http://your-node-ip:30001`
 
 2. **Ingress 方式**：
-   - 仪表板：`http://frps.yourdomain.com`
-   - API 服务：`http://frps-api.yourdomain.com`
+   - 仪表板：`http://frps.ray321.cn`（仅仪表板）
+   - FRP 服务：仅通过 NodePort 访问，不通过 Ingress 暴露
 
 ## 配置修改
 
@@ -97,5 +97,5 @@ kubectl get svc -n frps
 
 1. 请修改 `frps.ini` 中的密码和 token
 2. 根据实际需求调整资源限制
-3. 配置 Ingress 时请替换域名
+3. Ingress 仅暴露仪表板端口（7500），FRP 服务端口（7000）通过 NodePort 访问
 4. 确保镜像仓库的访问权限配置正确
