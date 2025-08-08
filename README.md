@@ -31,8 +31,8 @@ docker build -t frps:0.63.0 .
 
 ```bash
 # 替换为你的镜像仓库地址
-docker tag frps:0.63.0 your-registry/frps:0.63.0
-docker push your-registry/frps:0.63.0
+docker tag frps:0.63.0 ccr.ccs.tencentyun.com/ray321/frps:0.63.0
+docker push ccr.ccs.tencentyun.com/ray321/frps:0.63.0
 ```
 
 ### 3. 部署到 K3s
@@ -65,8 +65,8 @@ kubectl apply -f ingress.yaml
 
 1. **NodePort 方式**：
 
-   - FRP 服务：`http://your-node-ip:30000`
-   - 仪表板：`http://your-node-ip:30001`
+   - FRP 服务：`http://121.4.118.156:30000`
+   - 仪表板：`http://121.4.118.156:30001`
 
 2. **Ingress 方式**：
    - 仪表板：`http://frps.ray321.cn`（仅仪表板）
