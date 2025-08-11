@@ -66,14 +66,10 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # 标签策略配置
           tags: |
-            # 基于分支名的标签
-            type=ref,event=branch
-            # 基于Pull Request的标签
-            type=ref,event=pr
-            # 基于commit SHA的标签，格式：分支名-commit哈希
-            type=sha,prefix={{branch}}-
-            # 主分支额外添加latest标签
+            # 主分支使用latest标签
             type=raw,value=latest,enable={{is_default_branch}}
+            # 基于commit SHA的标签，用于版本追踪
+            type=sha,prefix={{branch}}-
 
       # 步骤5：构建并推送Docker镜像
       # 使用Dockerfile构建镜像并推送到CCR
@@ -110,12 +106,34 @@ jobs:
       # 设置kubectl连接到K3s集群
       - name: Configure kubectl
         run: |
+          # 检查KUBE_CONFIG是否为空
+          if [ -z "${{ secrets.KUBE_CONFIG }}" ]; then
+            echo "❌ 错误：KUBE_CONFIG secret 为空"
+            exit 1
+          fi
+
           # 将base64编码的kubeconfig解码到文件
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+
+          # 检查解码是否成功
+          if [ ! -s kubeconfig.yaml ]; then
+            echo "❌ 错误：kubeconfig.yaml 文件为空或解码失败"
+            exit 1
+          fi
+
           # 设置KUBECONFIG环境变量
           export KUBECONFIG=kubeconfig.yaml
+
           # 验证集群连接
+          echo "🔍 验证集群连接..."
           kubectl cluster-info
+
+          if [ $? -eq 0 ]; then
+            echo "✅ 集群连接成功"
+          else
+            echo "❌ 集群连接失败"
+            exit 1
+          fi
 
       # 步骤8：执行部署脚本
       # 使用我们创建的deploy.sh脚本进行智能部署
