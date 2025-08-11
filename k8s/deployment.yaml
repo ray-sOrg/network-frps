@@ -11,10 +11,13 @@ spec:
     metadata:
       labels:
         app: frps
+      annotations:
+        # 添加重启注解，支持配置热更新
+        checksum/config: ${CONFIG_CHECKSUM}
     spec:
       containers:
         - name: frps
-          image: ccr.ccs.tencentyun.com/ray321/frps:0.63.0
+          image: ccr.ccs.tencentyun.com/ray321/frps:latest
           ports:
             - containerPort: 7000
             - containerPort: 7500
@@ -30,15 +33,30 @@ spec:
               port: 7000
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: 7000
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           volumeMounts:
             - name: config-volume
               mountPath: /etc/frp/frps.ini
               subPath: frps.ini
+          env:
+            - name: FRP_VERSION
+              value: "0.63.0"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       volumes:
         - name: config-volume
           configMap:
@@ -48,3 +66,9 @@ spec:
                 path: frps.ini
       imagePullSecrets:
         - name: tencent-registry-secret
+      # 添加滚动更新策略
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0

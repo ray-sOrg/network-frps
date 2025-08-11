@@ -1,0 +1,209 @@
+# GitHub Actions 工作流配置文件
+# 功能：自动构建、推送Docker镜像并部署到腾讯云K3s集群
+# 触发条件：推送到main/master分支或创建Pull Request
+
+name: Build and Deploy FRPS to K3s
+
+# 定义触发条件
+on:
+  # 当代码推送到main或master分支时触发
+  push:
+    branches: [main, master]
+
+# 全局环境变量配置
+env:
+  # 腾讯云容器镜像服务地址
+  REGISTRY: ccr.ccs.tencentyun.com
+  # 镜像名称（命名空间/仓库名）
+  IMAGE_NAME: ray321/frps
+  # K3s集群的kubeconfig配置（从GitHub Secrets获取）
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+# 定义工作任务
+jobs:
+  # 构建和部署任务
+  build-and-deploy:
+    # 运行环境：Ubuntu最新版本
+    runs-on: ubuntu-latest
+
+    # 任务执行步骤
+    steps:
+      # 步骤1：检出代码
+      # 从GitHub仓库检出最新代码到工作目录
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # 检出深度：只获取最新的提交，提高构建速度
+          fetch-depth: 1
+
+      # 步骤2：设置Docker Buildx
+      # 启用Docker Buildx功能，支持多平台构建和缓存优化
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # 启用BuildKit缓存，提高构建速度
+          buildkitd-flags: --debug
+
+      # 步骤3：登录腾讯云容器镜像服务
+      # 使用GitHub Secrets中存储的凭证登录CCR
+      - name: Login to Tencent Cloud Container Registry
+        uses: docker/login-action@v3
+        with:
+          # 镜像仓库地址
+          registry: ${{ env.REGISTRY }}
+          # 用户名（从Secrets获取）
+          username: ${{ secrets.TENCENT_REGISTRY_USERNAME }}
+          # 密码（从Secrets获取）
+          password: ${{ secrets.TENCENT_REGISTRY_PASSWORD }}
+
+      # 步骤4：提取镜像元数据
+      # 自动生成镜像标签和标签信息
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # 目标镜像地址
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 标签策略配置
+          tags: |
+            # 基于分支名的标签
+            type=ref,event=branch
+            # 基于Pull Request的标签
+            type=ref,event=pr
+            # 基于commit SHA的标签，格式：分支名-commit哈希
+            type=sha,prefix={{branch}}-
+            # 主分支额外添加latest标签
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # 步骤5：构建并推送Docker镜像
+      # 使用Dockerfile构建镜像并推送到CCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          # 构建上下文：当前目录
+          context: .
+          # 目标平台：Linux AMD64
+          platforms: linux/amd64
+          # 启用推送：构建完成后自动推送到仓库
+          push: true
+          # 使用元数据步骤生成的标签
+          tags: ${{ steps.meta.outputs.tags }}
+          # 使用元数据步骤生成的标签信息
+          labels: ${{ steps.meta.outputs.labels }}
+          # 构建缓存配置：使用GitHub Actions缓存
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # 构建参数：传递Git提交信息
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
+
+      # 步骤6：设置kubectl工具
+      # 安装最新版本的kubectl命令行工具
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      # 步骤7：配置kubectl连接
+      # 设置kubectl连接到K3s集群
+      - name: Configure kubectl
+        run: |
+          # 将base64编码的kubeconfig解码到文件
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+          # 设置KUBECONFIG环境变量
+          export KUBECONFIG=kubeconfig.yaml
+          # 验证集群连接
+          kubectl cluster-info
+
+      # 步骤8：执行部署脚本
+      # 使用我们创建的deploy.sh脚本进行智能部署
+      - name: Execute deployment script
+        run: |
+          # 设置环境变量
+          export KUBECONFIG=kubeconfig.yaml
+          export REGISTRY="${{ env.REGISTRY }}"
+          export IMAGE_NAME="${{ env.IMAGE_NAME }}"
+          export IMAGE_TAG="${{ github.sha }}"
+          export NAMESPACE="frps"
+
+          # 给部署脚本添加执行权限
+          chmod +x scripts/deploy.sh
+
+          # 执行部署脚本
+          ./scripts/deploy.sh
+
+      # 步骤9：部署后验证
+      # 验证部署是否成功，检查服务状态
+      - name: Post-deployment verification
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+
+          # 等待服务完全就绪
+          log_info "等待服务就绪..."
+          sleep 30
+
+          # 检查Pod状态和健康情况
+          log_info "检查Pod状态:"
+          kubectl get pods -n frps -o wide
+
+          # 检查服务状态
+          log_info "检查服务状态:"
+          kubectl get svc -n frps
+
+          # 检查部署状态
+          log_info "检查部署状态:"
+          kubectl get deployment -n frps
+
+          # 检查事件（用于排查问题）
+          log_info "检查最近事件:"
+          kubectl get events -n frps --sort-by='.lastTimestamp' | tail -10
+
+      # 步骤10：功能测试
+      # 测试FRPS服务是否正常工作
+      - name: Functional testing
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+
+          # 获取Pod名称
+          POD_NAME=$(kubectl get pods -n frps -l app=frps -o jsonpath='{.items[0].metadata.name}')
+
+          # 检查FRPS进程状态
+          log_info "检查FRPS进程状态:"
+          kubectl exec -n frps $POD_NAME -- ps aux | grep frps
+
+          # 检查端口监听状态
+          log_info "检查端口监听状态:"
+          kubectl exec -n frps $POD_NAME -- netstat -tlnp
+
+          # 检查配置文件
+          log_info "检查配置文件:"
+          kubectl exec -n frps $POD_NAME -- cat /etc/frp/frps.ini
+
+      # 步骤11：清理工作
+      # 清理临时文件和敏感信息
+      - name: Cleanup
+        if: always()
+        run: |
+          # 删除kubeconfig文件
+          rm -f kubeconfig.yaml
+
+          # 清理其他临时文件
+          rm -rf .docker
+
+          log_info "清理工作完成"
+
+      # 步骤12：部署结果通知
+      # 根据部署结果发送通知（可选）
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ FRPS部署成功！"
+            echo "🌐 服务地址: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+            echo "📅 部署时间: $(date)"
+          else
+            echo "❌ FRPS部署失败！"
+            echo "🔍 请检查GitHub Actions日志排查问题"
+          fi
