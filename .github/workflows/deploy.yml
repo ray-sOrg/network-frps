@@ -143,7 +143,7 @@ jobs:
           export KUBECONFIG=kubeconfig.yaml
           export REGISTRY="${{ env.REGISTRY }}"
           export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-          export IMAGE_TAG="${{ github.sha }}"
+          export IMAGE_TAG="latest"
           export NAMESPACE="frps"
 
           # 给部署脚本添加执行权限
