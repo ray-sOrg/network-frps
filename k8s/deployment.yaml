@@ -57,6 +57,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+      # 添加滚动更新策略
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
       volumes:
         - name: config-volume
           configMap:
@@ -66,9 +72,3 @@ spec:
                 path: frps.ini
       imagePullSecrets:
         - name: tencent-registry-secret
-      # 添加滚动更新策略
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxSurge: 1
-          maxUnavailable: 0
