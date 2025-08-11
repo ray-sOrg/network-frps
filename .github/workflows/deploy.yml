@@ -155,7 +155,9 @@ jobs:
       # 步骤9：部署后验证
       # 验证部署是否成功，检查服务状态
       - name: Post-deployment verification
+        shell: bash
         run: |
+          source scripts/common.sh
           export KUBECONFIG=kubeconfig.yaml
 
           # 等待服务完全就绪
@@ -181,7 +183,9 @@ jobs:
       # 步骤10：功能测试
       # 测试FRPS服务是否正常工作
       - name: Functional testing
+        shell: bash
         run: |
+          source scripts/common.sh
           export KUBECONFIG=kubeconfig.yaml
 
           # 获取Pod名称
@@ -202,8 +206,10 @@ jobs:
       # 步骤11：清理工作
       # 清理临时文件和敏感信息
       - name: Cleanup
+        shell: bash
         if: always()
         run: |
+          source scripts/common.sh
           # 删除kubeconfig文件
           rm -f kubeconfig.yaml
 

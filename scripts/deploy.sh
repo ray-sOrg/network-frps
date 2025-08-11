@@ -1,12 +1,7 @@
 #!/bin/bash
 
 set -e
-
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+source "$(dirname "$0")/common.sh"
 
 # 配置变量
 REGISTRY=${REGISTRY:-"ccr.ccs.tencentyun.com"}
@@ -14,19 +9,6 @@ IMAGE_NAME=${IMAGE_NAME:-"ray321/frps"}
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
 NAMESPACE=${NAMESPACE:-"frps"}
 KUBECONFIG=${KUBECONFIG:-"kubeconfig.yaml"}
-
-# 日志函数
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # 检查依赖
 check_dependencies() {
@@ -145,5 +127,7 @@ main() {
 # 错误处理
 trap 'log_error "部署过程中发生错误，退出码: $?"; cleanup; exit 1' ERR
 
-# 执行主函数
-main "$@" 
+# 仅在脚本被直接执行时运行主函数
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi 
