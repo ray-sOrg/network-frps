@@ -3,8 +3,14 @@ kind: Ingress
 metadata:
   name: frps-dashboard-ingress
   annotations:
+    # 重写目标路径
     nginx.ingress.kubernetes.io/rewrite-target: /
+    # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # 添加CORS支持
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
 spec:
   rules:
     - host: frps.ray321.cn
