@@ -5,6 +5,7 @@ namespace: frps
 
 resources:
   - namespace.yaml
+  - secret.yaml
   - configmap.yaml
   - deployment.yaml
   - service.yaml
@@ -12,4 +13,8 @@ resources:
 
 commonLabels:
   app: frps
-  version: 0.63.0
+  version: "0.64.0"
+
+images:
+  - name: ccr.ccs.tencentyun.com/ray321/frps
+    newTag: "0.64.0"

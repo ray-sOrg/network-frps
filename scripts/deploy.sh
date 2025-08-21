@@ -24,6 +24,11 @@ check_dependencies() {
         exit 1
     fi
     
+    if ! command -v base64 &> /dev/null; then
+        log_error "base64 未安装"
+        exit 1
+    fi
+    
     log_info "依赖检查完成"
 }
 
@@ -49,11 +54,85 @@ update_image_tag() {
     # 更新镜像标签
     sed -i "s|image: $REGISTRY/$IMAGE_NAME:.*|image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG|g" k8s/deployment.yaml
     
-    # 生成配置校验和
-    CONFIG_CHECKSUM=$(sha256sum k8s/configmap.yaml | awk '{print $1}')
-    sed -i "s|\${CONFIG_CHECKSUM}|$CONFIG_CHECKSUM|g" k8s/deployment.yaml
+    # 计算配置校验和并更新deployment.yaml
+    update_config_checksum
     
     log_info "镜像标签更新完成"
+}
+
+# 更新配置校验和
+update_config_checksum() {
+    log_info "计算配置校验和..."
+    
+    # 计算configmap.yaml的SHA256校验和
+    if [ -f "k8s/configmap.yaml" ]; then
+        CONFIG_CHECKSUM=$(sha256sum k8s/configmap.yaml | awk '{print $1}')
+        log_info "配置校验和: $CONFIG_CHECKSUM"
+        
+        # 更新deployment.yaml中的校验和
+        sed -i "s|checksum/config: \".*\"|checksum/config: \"$CONFIG_CHECKSUM\"|g" k8s/deployment.yaml
+        
+        log_info "配置校验和更新完成"
+    else
+        log_warn "configmap.yaml 文件不存在，跳过校验和计算"
+    fi
+}
+
+# 创建腾讯云镜像仓库认证Secret
+create_registry_secret() {
+    log_info "创建腾讯云镜像仓库认证Secret..."
+    
+    # 检查是否有腾讯云镜像仓库的认证信息
+    if [ -n "$TENCENT_REGISTRY_USERNAME" ] && [ -n "$TENCENT_REGISTRY_PASSWORD" ]; then
+        log_info "使用环境变量创建镜像仓库认证Secret..."
+        
+        # 创建dockerconfigjson
+        DOCKER_CONFIG=$(cat <<EOF
+{
+  "auths": {
+    "$REGISTRY": {
+      "username": "$TENCENT_REGISTRY_USERNAME",
+      "password": "$TENCENT_REGISTRY_PASSWORD",
+      "auth": "$(echo -n "$TENCENT_REGISTRY_USERNAME:$TENCENT_REGISTRY_PASSWORD" | base64)"
+    }
+  }
+}
+EOF
+)
+        
+        # 编码为base64
+        DOCKER_CONFIG_B64=$(echo "$DOCKER_CONFIG" | base64 -w 0)
+        
+        # 更新secret.yaml
+        sed -i "s|.dockerconfigjson: \"\"|.dockerconfigjson: \"$DOCKER_CONFIG_B64\"|g" k8s/secret.yaml
+        
+        log_info "镜像仓库认证Secret配置已更新"
+    else
+        log_warn "未设置TENCENT_REGISTRY_USERNAME或TENCENT_REGISTRY_PASSWORD环境变量"
+        log_warn "将使用空的认证配置，可能导致镜像拉取失败"
+    fi
+}
+
+# 创建或更新Secret
+create_secrets() {
+    log_info "创建或更新Secret..."
+    
+    # 检查是否需要更新Secret
+    if [ -n "$FRP_DASHBOARD_PWD" ] && [ -n "$FRP_TOKEN" ]; then
+        log_info "使用环境变量更新Secret..."
+        
+        # 更新secret.yaml中的值
+        DASHBOARD_USER_B64=$(echo -n "admin" | base64)
+        DASHBOARD_PWD_B64=$(echo -n "$FRP_DASHBOARD_PWD" | base64)
+        TOKEN_B64=$(echo -n "$FRP_TOKEN" | base64)
+        
+        sed -i "s|dashboard_pwd: .*|dashboard_pwd: $DASHBOARD_PWD_B64|g" k8s/secret.yaml
+        sed -i "s|token: .*|token: $TOKEN_B64|g" k8s/secret.yaml
+        
+        log_info "Secret配置已更新"
+    else
+        log_warn "未设置FRP_DASHBOARD_PWD或FRP_TOKEN环境变量，使用默认配置"
+    fi
 }
 
 # 部署到Kubernetes
@@ -62,6 +141,9 @@ deploy_to_k8s() {
     
     # 创建命名空间（如果不存在）
     kubectl --kubeconfig="$KUBECONFIG" apply -f k8s/namespace.yaml
+    
+    # 创建Secret
+    kubectl --kubeconfig="$KUBECONFIG" apply -f k8s/secret.yaml
     
     # 应用所有配置
     kubectl --kubeconfig="$KUBECONFIG" apply -k k8s/
@@ -98,6 +180,10 @@ verify_deployment() {
     log_info "部署状态:"
     kubectl --kubeconfig="$KUBECONFIG" get deployment -n "$NAMESPACE"
     
+    # 检查Secret状态
+    log_info "Secret状态:"
+    kubectl --kubeconfig="$KUBECONFIG" get secret -n "$NAMESPACE"
+    
     # 检查日志
     log_info "最新日志:"
     kubectl --kubeconfig="$KUBECONFIG" logs -n "$NAMESPACE" deployment/frps --tail=20
@@ -115,6 +201,8 @@ main() {
     
     check_dependencies
     verify_k8s_connection
+    create_registry_secret
+    create_secrets
     update_image_tag
     deploy_to_k8s
     wait_for_deployment
@@ -122,6 +210,10 @@ main() {
     cleanup
     
     log_info "FRPS部署完成！"
+    log_info "访问信息:"
+    log_info "  - FRP服务端口: 7000 (NodePort: 30000)"
+    log_info "  - 仪表板端口: 7500 (NodePort: 30001)"
+    log_info "  - 仪表板域名: http://frps.ray321.cn"
 }
 
 # 错误处理

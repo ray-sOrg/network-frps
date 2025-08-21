@@ -18,8 +18,9 @@ spec:
       labels:
         app: frps
       annotations:
-        # 添加重启注解，支持配置热更新
-        checksum/config: ${CONFIG_CHECKSUM}
+        # 配置校验和注解，用于触发Pod重启
+        # 部署脚本会自动更新这个值
+        checksum/config: "placeholder-checksum"
     spec:
       containers:
         - name: frps
@@ -29,15 +30,15 @@ spec:
             - containerPort: 7500
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
               memory: "128Mi"
               cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
           livenessProbe:
             tcpSocket:
               port: 7000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
@@ -54,7 +55,23 @@ spec:
               subPath: frps.ini
           env:
             - name: FRP_VERSION
-              value: "0.63.0"
+              value: "0.64.0"
+            - name: DASHBOARD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: dashboard_user
+            - name: DASHBOARD_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: dashboard_pwd
+            - name: FRP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: token
+
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
