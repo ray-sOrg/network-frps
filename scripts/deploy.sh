@@ -10,6 +10,19 @@ IMAGE_TAG=${IMAGE_TAG:-"latest"}
 NAMESPACE=${NAMESPACE:-"frps"}
 KUBECONFIG=${KUBECONFIG:-"kubeconfig.yaml"}
 
+# 调试信息：显示环境变量状态
+log_info "=== 环境变量调试信息 ==="
+log_info "REGISTRY: $REGISTRY"
+log_info "IMAGE_NAME: $IMAGE_NAME"
+log_info "IMAGE_TAG: $IMAGE_TAG"
+log_info "NAMESPACE: $NAMESPACE"
+log_info "KUBECONFIG: $KUBECONFIG"
+log_info "TENCENT_REGISTRY_USERNAME: ${TENCENT_REGISTRY_USERNAME:+已设置}"
+log_info "TENCENT_REGISTRY_PASSWORD: ${TENCENT_REGISTRY_PASSWORD:+已设置}"
+log_info "FRP_DASHBOARD_PWD: ${FRP_DASHBOARD_PWD:+已设置}"
+log_info "FRP_TOKEN: ${FRP_TOKEN:+已设置}"
+log_info "=========================="
+
 # 检查依赖
 check_dependencies() {
     log_info "检查依赖..."
@@ -104,12 +117,18 @@ EOF
         DOCKER_CONFIG_B64=$(echo "$DOCKER_CONFIG" | base64 -w 0)
         
         # 更新secret.yaml
-        sed -i "s|.dockerconfigjson: \"\"|.dockerconfigjson: \"$DOCKER_CONFIG_B64\"|g" k8s/secret.yaml
+        sed -i "s|.dockerconfigjson: \".*\"|.dockerconfigjson: \"$DOCKER_CONFIG_B64\"|g" k8s/secret.yaml
         
         log_info "镜像仓库认证Secret配置已更新"
     else
-        log_warn "未设置TENCENT_REGISTRY_USERNAME或TENCENT_REGISTRY_PASSWORD环境变量"
-        log_warn "将使用空的认证配置，可能导致镜像拉取失败"
+        log_error "❌ 缺少必要的环境变量！"
+        log_error "请设置以下环境变量："
+        log_error "  - TENCENT_REGISTRY_USERNAME: 腾讯云镜像服务用户名"
+        log_error "  - TENCENT_REGISTRY_PASSWORD: 腾讯云镜像服务密码"
+        log_error ""
+        log_error "在GitHub Secrets中设置这些值，或通过环境变量传递。"
+        log_error "部署将失败，因为无法创建有效的镜像仓库认证。"
+        exit 1
     fi
 }
 
@@ -131,7 +150,9 @@ create_secrets() {
         
         log_info "Secret配置已更新"
     else
-        log_warn "未设置FRP_DASHBOARD_PWD或FRP_TOKEN环境变量，使用默认配置"
+        log_warn "⚠️  未设置FRP_DASHBOARD_PWD或FRP_TOKEN环境变量"
+        log_warn "将使用默认配置（dashboard_pwd: ttangtao123, token: ttangtao123）"
+        log_warn "建议在生产环境中设置自定义密码和token"
     fi
 }
 

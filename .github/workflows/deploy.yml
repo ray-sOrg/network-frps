@@ -146,6 +146,14 @@ jobs:
           export IMAGE_TAG="latest"
           export NAMESPACE="frps"
 
+          # 传递腾讯云镜像仓库认证环境变量
+          export TENCENT_REGISTRY_USERNAME="${{ secrets.TENCENT_REGISTRY_USERNAME }}"
+          export TENCENT_REGISTRY_PASSWORD="${{ secrets.TENCENT_REGISTRY_PASSWORD }}"
+
+          # 可选：传递FRP配置环境变量
+          export FRP_DASHBOARD_PWD="${{ secrets.FRP_DASHBOARD_PWD }}"
+          export FRP_TOKEN="${{ secrets.FRP_TOKEN }}"
+
           # 给部署脚本添加执行权限
           chmod +x scripts/deploy.sh
 
