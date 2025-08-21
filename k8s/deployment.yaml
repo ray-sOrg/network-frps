@@ -22,6 +22,8 @@ spec:
         # 部署脚本会自动更新这个值
         checksum/config: "placeholder-checksum"
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: frps
           image: ccr.ccs.tencentyun.com/ray321/frps:latest
