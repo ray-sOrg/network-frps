@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: frps-config
 data:
-    frps.ini: |
+  frps.ini: |
     [common]
     bind_port = 7000
     dashboard_port = 7500
@@ -15,11 +15,11 @@ data:
     allow_ports = 6000-7000
     max_pool_count = 10
     token = ttangtao123
-    
+
     # 安全配置
     authentication_method = token
     authentication_timeout = 900
-    
+
     # 性能配置
     max_ports_per_client = 0
     subdomain_host = frps.ray321.cn
