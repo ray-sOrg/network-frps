@@ -6,6 +6,21 @@ metadata:
     # 使用正则重写，将 /frps(/|$)(.*) 重写到后端根路径 /
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # 将后端返回的绝对重定向（Location: /xxx）重写为带 /frps 前缀
+    nginx.ingress.kubernetes.io/proxy-redirect-from: ~^(/.*)$
+    nginx.ingress.kubernetes.io/proxy-redirect-to: /frps$1
+    # 在响应内容中重写 HTML 里的绝对路径链接（href/src/action 以 "/" 开头）为带 /frps 前缀
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Prefix /frps;
+      # 改写后端 302/301 的绝对路径为带 /frps 前缀
+      proxy_redirect ~^(/.*)$ /frps$1;
+      # 禁用上游压缩，便于 sub_filter 生效
+      proxy_set_header Accept-Encoding "";
+      sub_filter_once off;
+      sub_filter_types text/html;
+      sub_filter 'href="/' 'href="/frps/';
+      sub_filter 'src="/' 'src="/frps/';
+      sub_filter 'action="/' 'action="/frps/';
     # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # 添加CORS支持
