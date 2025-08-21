@@ -12,7 +12,7 @@ data:
     log_file = /var/log/frps.log
     log_level = info
     log_max_days = 7
-    allow_ports = 6000-7000
+    allow_ports = 6001-6020
     max_pool_count = 10
     token = ttangtao123
 
