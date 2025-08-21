@@ -166,6 +166,13 @@ deploy_to_k8s() {
     # 创建Secret
     kubectl --kubeconfig="$KUBECONFIG" apply -f k8s/secret.yaml
     
+    # 检查并删除现有的Deployment（如果存在）
+    if kubectl --kubeconfig="$KUBECONFIG" get deployment frps -n "$NAMESPACE" &> /dev/null; then
+        log_info "发现现有Deployment，正在删除..."
+        kubectl --kubeconfig="$KUBECONFIG" delete deployment frps -n "$NAMESPACE" --ignore-not-found=true
+        log_info "现有Deployment已删除"
+    fi
+    
     # 应用所有配置
     kubectl --kubeconfig="$KUBECONFIG" apply -k k8s/
     
