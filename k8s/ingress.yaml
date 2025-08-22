@@ -3,24 +3,6 @@ kind: Ingress
 metadata:
   name: frps-dashboard-ingress
   annotations:
-    # 使用正则重写，将 /frps(/|$)(.*) 重写到后端根路径 /
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # 将后端返回的绝对重定向（Location: /xxx）重写为带 /frps 前缀
-    nginx.ingress.kubernetes.io/proxy-redirect-from: ~^(/.*)$
-    nginx.ingress.kubernetes.io/proxy-redirect-to: /frps$1
-    # 在响应内容中重写 HTML 里的绝对路径链接（href/src/action 以 "/" 开头）为带 /frps 前缀
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Prefix /frps;
-      # 改写后端 302/301 的绝对路径为带 /frps 前缀
-      proxy_redirect ~^(/.*)$ /frps$1;
-      # 禁用上游压缩，便于 sub_filter 生效
-      proxy_set_header Accept-Encoding "";
-      sub_filter_once off;
-      sub_filter_types text/html;
-      sub_filter 'href="/' 'href="/frps/';
-      sub_filter 'src="/' 'src="/frps/';
-      sub_filter 'action="/' 'action="/frps/';
     # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # 添加CORS支持
@@ -30,11 +12,11 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: tx.ray321.cn
+    - host: frps.tx.ray321.cn
       http:
         paths:
-          - path: /frps(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: frps-service
@@ -46,24 +28,6 @@ kind: Ingress
 metadata:
   name: frps-pve-ingress
   annotations:
-    # 使用正则重写，将 /pve(/|$)(.*) 重写到后端根路径 /
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # 将后端返回的绝对重定向（Location: /xxx）重写为带 /pve 前缀
-    nginx.ingress.kubernetes.io/proxy-redirect-from: ~^(/.*)$
-    nginx.ingress.kubernetes.io/proxy-redirect-to: /pve$1
-    # 在响应内容中重写 HTML 里的绝对路径链接（href/src/action 以 "/" 开头）为带 /pve 前缀
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Prefix /pve;
-      # 改写后端 302/301 的绝对路径为带 /pve 前缀
-      proxy_redirect ~^(/.*)$ /pve$1;
-      # 禁用上游压缩，便于 sub_filter 生效
-      proxy_set_header Accept-Encoding "";
-      sub_filter_once off;
-      sub_filter_types text/html;
-      sub_filter 'href="/' 'href="/pve/';
-      sub_filter 'src="/' 'src="/pve/';
-      sub_filter 'action="/' 'action="/pve/';
     # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # 添加CORS支持
@@ -73,11 +37,11 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: tx.ray321.cn
+    - host: pve.tx.ray321.cn
       http:
         paths:
-          - path: /pve(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: frps-service
@@ -89,24 +53,6 @@ kind: Ingress
 metadata:
   name: frps-ikuai-ingress
   annotations:
-    # 使用正则重写，将 /ikuai(/|$)(.*) 重写到后端根路径 /
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # 将后端返回的绝对重定向（Location: /xxx）重写为带 /ikuai 前缀
-    nginx.ingress.kubernetes.io/proxy-redirect-from: ~^(/.*)$
-    nginx.ingress.kubernetes.io/proxy-redirect-to: /ikuai$1
-    # 在响应内容中重写 HTML 里的绝对路径链接（href/src/action 以 "/" 开头）为带 /ikuai 前缀
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Prefix /ikuai;
-      # 改写后端 302/301 的绝对路径为带 /ikuai 前缀
-      proxy_redirect ~^(/.*)$ /ikuai$1;
-      # 禁用上游压缩，便于 sub_filter 生效
-      proxy_set_header Accept-Encoding "";
-      sub_filter_once off;
-      sub_filter_types text/html;
-      sub_filter 'href="/' 'href="/ikuai/';
-      sub_filter 'src="/' 'src="/ikuai/';
-      sub_filter 'action="/' 'action="/ikuai/';
     # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # 添加CORS支持
@@ -116,11 +62,11 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: tx.ray321.cn
+    - host: ikuai.tx.ray321.cn
       http:
         paths:
-          - path: /ikuai(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: frps-service
@@ -132,24 +78,6 @@ kind: Ingress
 metadata:
   name: frps-istoreos-ingress
   annotations:
-    # 使用正则重写，将 /istoreos(/|$)(.*) 重写到后端根路径 /
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # 将后端返回的绝对重定向（Location: /xxx）重写为带 /istoreos 前缀
-    nginx.ingress.kubernetes.io/proxy-redirect-from: ~^(/.*)$
-    nginx.ingress.kubernetes.io/proxy-redirect-to: /istoreos$1
-    # 在响应内容中重写 HTML 里的绝对路径链接（href/src/action 以 "/" 开头）为带 /istoreos 前缀
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Prefix /istoreos;
-      # 改写后端 302/301 的绝对路径为带 /istoreos 前缀
-      proxy_redirect ~^(/.*)$ /istoreos$1;
-      # 禁用上游压缩，便于 sub_filter 生效
-      proxy_set_header Accept-Encoding "";
-      sub_filter_once off;
-      sub_filter_types text/html;
-      sub_filter 'href="/' 'href="/istoreos/';
-      sub_filter 'src="/' 'src="/istoreos/';
-      sub_filter 'action="/' 'action="/istoreos/';
     # 禁用SSL重定向
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # 添加CORS支持
@@ -159,11 +87,11 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: tx.ray321.cn
+    - host: istoreos.tx.ray321.cn
       http:
         paths:
-          - path: /istoreos(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: frps-service
