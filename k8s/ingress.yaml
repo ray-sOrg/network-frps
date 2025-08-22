@@ -34,6 +34,7 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
 spec:
   ingressClassName: nginx
   rules:
@@ -47,6 +48,9 @@ spec:
                 name: frps-service
                 port:
                   number: 6001
+  tls:
+    - hosts:
+        - pve.tx.ray321.cn
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -97,3 +101,31 @@ spec:
                 name: frps-service
                 port:
                   number: 6003
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frps-istoreosssh-ingress
+  annotations:
+    # 禁用SSL重定向
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # 添加CORS支持
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    # WebSocket/长连接建议超时
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: istoreosssh.tx.ray321.cn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frps-service
+                port:
+                  number: 6004

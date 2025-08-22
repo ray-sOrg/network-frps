@@ -27,3 +27,7 @@ spec:
       protocol: TCP
       port: 6003
       targetPort: 6003
+    - name: istoreosssh-port
+      protocol: TCP
+      port: 6004
+      targetPort: 6004
