@@ -137,17 +137,6 @@ kubectl apply -f ingress.yaml
 - `7500`: 仪表板端口（Web 管理界面）
 - `6001-6003`: 代理端口（用于网页访问本地服务）
 
-### 网页代理访问
-
-通过 Ingress 配置，你可以通过以下地址访问本地服务：
-
-- **PVE 管理界面**: `https://tx.ray321.cn/pve`
-- **iKuai 管理界面**: `https://tx.ray321.cn/ikuai`
-- **iStoreOS 管理界面**: `https://tx.ray321.cn/istoreos`
-- **FRPS 管理面板**: `https://tx.ray321.cn/frps`
-
-详细配置说明请参考 [PROXY_ACCESS_GUIDE.md](./PROXY_ACCESS_GUIDE.md)
-
 ### 访问方式
 
 1. **NodePort 方式**：
@@ -155,9 +144,11 @@ kubectl apply -f ingress.yaml
    - FRP 服务：`http://121.4.118.156:30000`
    - 仪表板：`http://121.4.118.156:30001`
 
-2. **Ingress 方式**：
-   - 仪表板：`http://frps.ray321.cn`（仅仪表板）
-   - FRP 服务：仅通过 NodePort 访问，不通过 Ingress 暴露
+2. **Ingress 方式（推荐）**：
+   - FRPS 管理面板：`https://frps.tx.ray321.cn`
+   - PVE 管理界面：`https://pve.tx.ray321.cn`
+   - iKuai 管理界面：`https://ikuai.tx.ray321.cn`
+   - iStoreOS 管理界面：`https://istoreos.tx.ray321.cn`
 
 ## 安全配置
 

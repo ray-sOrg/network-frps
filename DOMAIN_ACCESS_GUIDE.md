@@ -2,12 +2,12 @@
 
 ## 🎯 访问方式说明
 
-### 1. **仪表板访问（推荐域名方式）**
+### 1. **三级域名访问（推荐）**
 
-- **域名**: `http://frps.ray321.cn`
-- **说明**: 通过 Ingress 访问，无需端口号
-- **服务**: FRPS Web 管理界面
-- **状态**: ✅ 已配置，可通过域名访问
+- **FRPS 管理面板**: `https://frps.tx.ray321.cn`
+- **PVE 管理界面**: `https://pve.tx.ray321.cn`
+- **iKuai 管理界面**: `https://ikuai.tx.ray321.cn`
+- **iStoreOS 管理界面**: `https://istoreos.tx.ray321.cn`
 
 ### 2. **FRP 服务访问（仅限 IP+端口）**
 
@@ -26,10 +26,10 @@
 
 ### 解决方案对比：
 
-| 访问方式    | FRP 服务  | 仪表板  | 说明                 |
-| ----------- | --------- | ------- | -------------------- |
-| **域名**    | ❌ 不支持 | ✅ 支持 | 仪表板可通过域名访问 |
-| **IP+端口** | ✅ 支持   | ✅ 支持 | 两种服务都支持       |
+| 访问方式     | FRP 服务  | 管理界面 | 说明               |
+| ------------ | --------- | -------- | ------------------ |
+| **三级域名** | ❌ 不支持 | ✅ 支持  | 所有管理界面都支持 |
+| **IP+端口**  | ✅ 支持   | ✅ 支持  | 两种服务都支持     |
 
 ## 🛠️ 配置步骤
 
@@ -37,9 +37,12 @@
 
 ```bash
 # 检查域名解析
-nslookup frps.ray321.cn
+nslookup frps.tx.ray321.cn
+nslookup pve.tx.ray321.cn
+nslookup ikuai.tx.ray321.cn
+nslookup istoreos.tx.ray321.cn
 
-# 应该返回你的服务器IP
+# 应该都返回你的服务器IP
 # 121.4.118.156
 ```
 
@@ -62,14 +65,14 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 kubectl get ingress -n frps
 
 # 检查Ingress详细信息
-kubectl describe ingress frps-dashboard-ingress -n frps
+kubectl describe ingress -n frps
 ```
 
 ## 🌟 最佳实践建议
 
-### 1. **仪表板访问**
+### 1. **管理界面访问**
 
-- 使用域名：`http://frps.ray321.cn`
+- 使用三级域名：`https://frps.tx.ray321.cn`
 - 无需端口号，更专业
 - 支持 HTTPS（如果配置了 SSL 证书）
 
@@ -86,8 +89,8 @@ token = your_token
 
 ### 3. **域名管理**
 
-- 主域名：`frps.ray321.cn` → 仪表板
-- 子域名：`api.frps.ray321.cn` → 可考虑用于 API 服务
+- 主域名：`tx.ray321.cn`
+- 三级域名：`*.tx.ray321.cn` → 各个服务
 
 ## 🔧 故障排查
 
@@ -109,19 +112,19 @@ kubectl get pods -n kube-system | grep ingress
 kubectl get ingress -n frps
 
 # 3. 检查域名解析
-nslookup frps.ray321.cn
+nslookup frps.tx.ray321.cn
 
 # 4. 检查Ingress日志
 kubectl logs -n kube-system deployment/ingress-nginx-controller
 ```
 
-### 问题 2: 仪表板无法访问
+### 问题 2: 重定向次数过多
 
 **可能原因**:
 
-1. Pod 未运行
-2. Service 配置错误
-3. Ingress 规则不匹配
+1. 域名配置冲突
+2. Ingress 规则配置错误
+3. 服务端口映射问题
 
 **排查步骤**:
 
@@ -134,31 +137,69 @@ kubectl get svc -n frps
 
 # 3. 检查Ingress规则
 kubectl describe ingress -n frps
+
+# 4. 检查frps日志
+kubectl logs -f deployment/frps -n frps
+```
+
+### 问题 3: 某个服务无法访问
+
+**可能原因**:
+
+1. frpc 客户端未运行
+2. 本地服务不可访问
+3. 端口映射错误
+
+**排查步骤**:
+
+```bash
+# 1. 检查frps日志
+kubectl logs -f deployment/frps -n frps
+
+# 2. 检查本地服务状态
+# 在家庭网络中检查各个服务是否正常运行
+
+# 3. 检查端口映射
+kubectl get svc -n frps
 ```
 
 ## 📋 配置检查清单
 
 ### ✅ 域名配置：
 
-- [ ] 域名已解析到服务器 IP
+- [ ] 所有三级域名已解析到服务器 IP
 - [ ] Ingress Controller 已安装
 - [ ] Ingress 规则配置正确
 - [ ] 服务端口映射正确
 
 ### ✅ 访问测试：
 
-- [ ] 仪表板可通过域名访问
+- [ ] FRPS 管理面板可通过域名访问
+- [ ] PVE 管理界面可通过域名访问
+- [ ] iKuai 管理界面可通过域名访问
+- [ ] iStoreOS 管理界面可通过域名访问
 - [ ] FRP 服务可通过 IP+端口访问
-- [ ] 所有服务正常运行
 
 ## 🎉 预期结果
 
 配置完成后：
 
-- ✅ **仪表板**: `http://frps.ray321.cn` (域名访问)
-- ✅ **FRP 服务**: `http://121.4.118.156:30000` (IP+端口访问)
-- ✅ **无端口号**: 仪表板通过域名访问，更专业
+- ✅ **FRPS 管理面板**: `https://frps.tx.ray321.cn`
+- ✅ **PVE 管理界面**: `https://pve.tx.ray321.cn`
+- ✅ **iKuai 管理界面**: `https://ikuai.tx.ray321.cn`
+- ✅ **iStoreOS 管理界面**: `https://istoreos.tx.ray321.cn`
+- ✅ **FRP 服务**: `http://121.4.118.156:30000`
+- ✅ **无端口号**: 所有管理界面通过域名访问，更专业
 - ✅ **功能完整**: 两种访问方式都正常工作
+
+## 🔄 从旧版本升级
+
+如果你之前使用的是路径方式（如 `tx.ray321.cn/frps`），升级到三级域名方式：
+
+1. **更新配置文件**：确保所有配置文件使用新的域名结构
+2. **重启服务**：应用新配置后重启 Pod
+3. **更新 DNS**：确保所有三级域名都正确解析
+4. **测试访问**：逐一测试所有新的域名访问
 
 ---
 

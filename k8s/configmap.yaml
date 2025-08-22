@@ -22,4 +22,3 @@ data:
 
     # 性能配置
     max_ports_per_client = 0
-    subdomain_host = frps.ray321.cn
