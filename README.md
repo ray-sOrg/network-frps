@@ -28,13 +28,11 @@
 
 ### 1. 构建 Docker 镜像
 
-#### 1. 构建 Docker 镜像
-
 ```bash
 docker build -t frps:0.64.0 .
 ```
 
-#### 2. 推送到镜像仓库
+### 2. 推送到镜像仓库
 
 ```bash
 # 替换为你的镜像仓库地址
@@ -42,7 +40,7 @@ docker tag frps:0.64.0 ccr.ccs.tencentyun.com/ray321/frps:0.64.0
 docker push ccr.ccs.tencentyun.com/ray321/frps:0.64.0
 ```
 
-#### 3. 部署到 K3s
+### 3. 部署到 K3s
 
 #### 方式一：使用部署脚本（推荐）
 
@@ -95,8 +93,21 @@ kubectl apply -f ingress.yaml
 
 - `7000`: FRP 服务端口（客户端连接）
 - `7500`: 仪表板端口（Web 管理界面）
+- `6001-6003`: 代理端口（用于网页访问本地服务）
 - `30000`: NodePort 映射到 7000（仅 K8s）
 - `30001`: NodePort 映射到 7500（仅 K8s）
+- `30002-30004`: NodePort 映射到 6001-6003（仅 K8s）
+
+### 网页代理访问
+
+通过 Ingress 配置，你可以通过以下地址访问本地服务：
+
+- **PVE 管理界面**: `https://tx.ray321.cn/pve`
+- **iKuai 管理界面**: `https://tx.ray321.cn/ikuai`
+- **iStoreOS 管理界面**: `https://tx.ray321.cn/istoreos`
+- **FRPS 管理面板**: `https://tx.ray321.cn/frps`
+
+详细配置说明请参考 [PROXY_ACCESS_GUIDE.md](./PROXY_ACCESS_GUIDE.md)
 
 ### 访问方式
 

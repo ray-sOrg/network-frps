@@ -30,6 +30,9 @@ spec:
           ports:
             - containerPort: 7000
             - containerPort: 7500
+            - containerPort: 6001
+            - containerPort: 6002
+            - containerPort: 6003
           resources:
             requests:
               memory: "128Mi"

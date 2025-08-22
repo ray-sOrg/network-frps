@@ -20,7 +20,7 @@ RUN mkdir -p /etc/frp
 COPY frps.ini /etc/frp/frps.ini
 
 # 暴露常用端口（你可以根据 frps.ini 的配置暴露更多）
-EXPOSE 7000 7500
+EXPOSE 7000 7500 6001 6002 6003
 
 # 启动命令
 CMD ["frps", "-c", "/etc/frp/frps.ini"]

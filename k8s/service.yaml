@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: frps-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: frps
   ports:
@@ -11,9 +11,19 @@ spec:
       protocol: TCP
       port: 7000
       targetPort: 7000
-      nodePort: 30000
     - name: dashboard-port
       protocol: TCP
       port: 7500
       targetPort: 7500
-      nodePort: 30001
+    - name: pve-port
+      protocol: TCP
+      port: 6001
+      targetPort: 6001
+    - name: ikuai-port
+      protocol: TCP
+      port: 6002
+      targetPort: 6002
+    - name: istoreos-port
+      protocol: TCP
+      port: 6003
+      targetPort: 6003
