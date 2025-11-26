@@ -41,7 +41,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          repository: ${{ env.GITHUB_REPO }}
           fetch-depth: 1
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY || '' }}
 
       # 登录阿里云 ACR
       - name: Login to Alibaba Cloud Container Registry
@@ -93,7 +95,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          repository: ${{ env.GITHUB_REPO }}
           fetch-depth: 1
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY || '' }}
 
       # 配置 K8s 访问
       - name: Configure cluster access

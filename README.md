@@ -6,8 +6,7 @@ FRP 服务端 Docker 镜像，用于实现外网访问家庭网络。
 
 ```
 .
-├── frps                # FRP 服务端二进制文件 (v0.65.0)
-├── Dockerfile          # Docker 镜像构建
+├── Dockerfile          # Docker 镜像构建（自动下载 frps）
 ├── deployment.yaml     # K8s 部署配置
 ├── .dockerignore       # Docker 忽略文件
 └── .github/workflows/  # GitHub Actions 自动部署
@@ -15,16 +14,10 @@ FRP 服务端 Docker 镜像，用于实现外网访问家庭网络。
 
 ## 升级 FRP 版本
 
-```bash
-# 下载新版本 (替换版本号)
-VERSION=0.64.0
-curl -L -o frp.tar.gz https://github.com/fatedier/frp/releases/download/v${VERSION}/frp_${VERSION}_linux_amd64.tar.gz
-tar -xzf frp.tar.gz
-mv frp_${VERSION}_linux_amd64/frps .
-rm -rf frp_${VERSION}_linux_amd64 frp.tar.gz
+修改 `Dockerfile` 中的版本号，然后提交推送即可：
 
-# 提交并推送，自动触发部署
-git add frps && git commit -m "upgrade frps to v${VERSION}" && git push
+```dockerfile
+ENV FRP_VERSION=0.65.0  # 改成新版本号
 ```
 
 ## 自动部署
