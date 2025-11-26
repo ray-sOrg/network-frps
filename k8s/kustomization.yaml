@@ -5,17 +5,10 @@ namespace: frps
 
 resources:
   - namespace.yaml
-  - secret.yaml
   - configmap.yaml
   - deployment.yaml
   - service.yaml
-  - ingress.yaml
 
 labels:
   - pairs:
       app: frps
-      version: "latest"
-# 移除images配置，因为部署脚本会动态更新deployment.yaml中的镜像标签
-# images:
-#   - name: ccr.ccs.tencentyun.com/ray321/frps
-#     newTag: "0.64.0"

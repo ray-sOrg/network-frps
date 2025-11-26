@@ -1,241 +1,194 @@
-# GitHub Actions 工作流配置文件
-# 功能：自动构建、推送Docker镜像并部署到腾讯云K3s集群
-# 触发条件：推送到main/master分支或创建Pull Request
+name: 🚀 Build & Deploy FRPS
 
-name: Build and Deploy FRPS to K3s
-
-# 定义触发条件
 on:
-  # 当代码推送到main或master分支时触发
   push:
     branches: [main, master]
 
-# 全局环境变量配置
+# ========================================
+# 🔧 项目配置变量
+# ========================================
 env:
-  # 腾讯云容器镜像服务地址
-  REGISTRY: ccr.ccs.tencentyun.com
-  # 镜像名称（命名空间/仓库名）
-  IMAGE_NAME: ray321/frps
-  # K3s集群的kubeconfig配置（从GitHub Secrets获取）
-  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+  # 项目基本信息
+  PROJECT_NAME: frps
+  GITHUB_REPO: tt472625987/portal-frps
 
-# 定义工作任务
+  # 阿里云容器镜像服务配置
+  ACR_REGION: cn-chengdu
+  ACR_NAMESPACE: ray321
+  ACR_REGISTRY_VPC: registry-vpc.cn-chengdu.aliyuncs.com
+  ACR_REGISTRY_PUBLIC: registry.cn-chengdu.aliyuncs.com
+
+  # Kubernetes 配置
+  K8S_NAMESPACE: frps
+
+  # 部署超时时间（秒）
+  ROLLOUT_TIMEOUT: 180
+
 jobs:
-  # 构建和部署任务
-  build-and-deploy:
-    # 运行环境：Ubuntu最新版本
-    runs-on: ubuntu-latest
+  # =============================
+  # 1️⃣ 构建镜像并推送到阿里云 ACR
+  # =============================
+  build:
+    name: 🏗️ Build & Push Docker Image
+    runs-on: self-hosted
 
-    # 任务执行步骤
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+
     steps:
-      # 步骤1：检出代码
-      # 从GitHub仓库检出最新代码到工作目录
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # 检出深度：只获取最新的提交，提高构建速度
           fetch-depth: 1
 
-      # 步骤2：设置Docker Buildx
-      # 启用Docker Buildx功能，支持多平台构建和缓存优化
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          # 启用BuildKit缓存，提高构建速度
-          buildkitd-flags: --debug
-
-      # 步骤3：登录腾讯云容器镜像服务
-      # 使用GitHub Secrets中存储的凭证登录CCR
-      - name: Login to Tencent Cloud Container Registry
+      # 登录阿里云 ACR
+      - name: Login to Alibaba Cloud Container Registry
         uses: docker/login-action@v3
         with:
-          # 镜像仓库地址
-          registry: ${{ env.REGISTRY }}
-          # 用户名（从Secrets获取）
-          username: ${{ secrets.TENCENT_REGISTRY_USERNAME }}
-          # 密码（从Secrets获取）
-          password: ${{ secrets.TENCENT_REGISTRY_PASSWORD }}
+          registry: ${{ env.ACR_REGISTRY_VPC }}
+          username: ${{ secrets.ALICLOUD_USERNAME }}
+          password: ${{ secrets.ALICLOUD_PASSWORD }}
 
-      # 步骤4：提取镜像元数据
-      # 自动生成镜像标签和标签信息
-      - name: Extract metadata
+      # 生成镜像标签
+      - name: Generate image metadata
         id: meta
-        uses: docker/metadata-action@v5
-        with:
-          # 目标镜像地址
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # 标签策略配置
-          tags: |
-            # 主分支使用latest标签
-            type=raw,value=latest,enable={{is_default_branch}}
-            # 基于commit SHA的标签，用于版本追踪
-            type=sha,prefix={{branch}}-
-
-      # 步骤5：构建并推送Docker镜像
-      # 使用Dockerfile构建镜像并推送到CCR
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          # 构建上下文：当前目录
-          context: .
-          # 目标平台：Linux AMD64
-          platforms: linux/amd64
-          # 启用推送：构建完成后自动推送到仓库
-          push: true
-          # 使用元数据步骤生成的标签
-          tags: ${{ steps.meta.outputs.tags }}
-          # 使用元数据步骤生成的标签信息
-          labels: ${{ steps.meta.outputs.labels }}
-          # 构建缓存配置：使用GitHub Actions缓存
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # 构建参数：传递Git提交信息
-          build-args: |
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
-            VCS_REF=${{ github.sha }}
-            VERSION=${{ github.ref_name }}
-
-      # 步骤6：设置kubectl工具
-      # 安装最新版本的kubectl命令行工具
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: "latest"
-
-      # 步骤7：配置kubectl连接
-      # 设置kubectl连接到K3s集群
-      - name: Configure kubectl
         run: |
-          # 检查KUBE_CONFIG是否为空
-          if [ -z "${{ secrets.KUBE_CONFIG }}" ]; then
-            echo "❌ 错误：KUBE_CONFIG secret 为空"
-            exit 1
-          fi
+          VPC_IMAGE=${{ env.ACR_REGISTRY_VPC }}/${{ env.ACR_NAMESPACE }}/${{ env.PROJECT_NAME }}
+          PUBLIC_IMAGE=${{ env.ACR_REGISTRY_PUBLIC }}/${{ env.ACR_NAMESPACE }}/${{ env.PROJECT_NAME }}
+          IMAGE_TAG="build-${GITHUB_RUN_NUMBER}-$(git rev-parse --short HEAD)"
 
-          # 将base64编码的kubeconfig解码到文件
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+          echo "image=$PUBLIC_IMAGE" >> $GITHUB_OUTPUT
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "vpc_image=$VPC_IMAGE" >> $GITHUB_OUTPUT
 
-          # 检查解码是否成功
-          if [ ! -s kubeconfig.yaml ]; then
-            echo "❌ 错误：kubeconfig.yaml 文件为空或解码失败"
-            exit 1
-          fi
+          echo "🏷️  镜像标签: $IMAGE_TAG"
+          echo "📤 推送地址: $VPC_IMAGE:$IMAGE_TAG"
+          echo "📦 拉取地址: $PUBLIC_IMAGE:$IMAGE_TAG"
 
-          # 设置KUBECONFIG环境变量
-          export KUBECONFIG=kubeconfig.yaml
+      # 构建并推送镜像
+      - name: Build & Push Docker Image
+        run: |
+          VPC_IMAGE=${{ steps.meta.outputs.vpc_image }}
+          IMAGE_TAG=${{ steps.meta.outputs.tag }}
 
-          # 验证集群连接
+          echo "🛠 构建镜像: $VPC_IMAGE:$IMAGE_TAG"
+          docker build -t $VPC_IMAGE:$IMAGE_TAG .
+
+          echo "📤 推送镜像到阿里云 ACR..."
+          docker push $VPC_IMAGE:$IMAGE_TAG
+
+          echo "✅ 镜像推送成功"
+
+  # =============================
+  # 2️⃣ 部署到 Kubernetes 集群
+  # =============================
+  deploy:
+    name: 🚀 Deploy to Kubernetes
+    runs-on: self-hosted
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # 配置 K8s 访问（直接使用 KUBECONFIG，不需要 base64）
+      - name: Configure cluster access
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p $HOME/.kube
+          echo "$KUBECONFIG_CONTENT" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+
           echo "🔍 验证集群连接..."
-          kubectl cluster-info
+          kubectl cluster-info --request-timeout=10s
+          echo "✅ K8s 集群连接成功"
 
-          if [ $? -eq 0 ]; then
-            echo "✅ 集群连接成功"
+      # 创建命名空间（如果不存在）
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          echo "✅ 命名空间 ${{ env.K8S_NAMESPACE }} 已就绪"
+
+      # 创建阿里云镜像拉取凭证
+      - name: Create ACR Pull Secret
+        run: |
+          kubectl delete secret aliyun-acr-secret -n ${{ env.K8S_NAMESPACE }} --ignore-not-found=true
+          kubectl create secret docker-registry aliyun-acr-secret \
+            --docker-server=${{ env.ACR_REGISTRY_PUBLIC }} \
+            --docker-username="${{ secrets.ALICLOUD_USERNAME }}" \
+            --docker-password="${{ secrets.ALICLOUD_PASSWORD }}" \
+            --namespace=${{ env.K8S_NAMESPACE }}
+          echo "✅ 阿里云镜像拉取凭证已创建"
+
+      # 创建 FRP 配置 Secret
+      - name: Create FRP Secrets
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: frps-secret
+            namespace: ${{ env.K8S_NAMESPACE }}
+          type: Opaque
+          stringData:
+            dashboard_user: "admin"
+            dashboard_pwd: "${{ secrets.FRP_DASHBOARD_PWD }}"
+            token: "${{ secrets.FRP_TOKEN }}"
+          EOF
+          echo "✅ FRP Secrets 已创建"
+
+      # 替换镜像并部署
+      - name: Apply deployment
+        run: |
+          IMAGE=${{ needs.build.outputs.image }}
+          TAG=${{ needs.build.outputs.tag }}
+
+          # 替换镜像地址
+          sed -i "s|__IMAGE_NAME__|$IMAGE|g" k8s/deployment.yaml
+          sed -i "s|__IMAGE_TAG__|$TAG|g" k8s/deployment.yaml
+
+          echo "🚀 部署版本: $IMAGE:$TAG"
+
+          # 应用所有 K8s 配置
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      # 检查部署状态
+      - name: Verify rollout
+        run: |
+          if kubectl rollout status deployment/frps -n ${{ env.K8S_NAMESPACE }} --timeout=${{ env.ROLLOUT_TIMEOUT }}s; then
+            echo "✅ 部署成功"
           else
-            echo "❌ 集群连接失败"
+            echo "❌ 部署失败，开始回滚..."
+            kubectl rollout undo deployment/frps -n ${{ env.K8S_NAMESPACE }}
+            echo "🩹 已回滚到上一个稳定版本"
             exit 1
           fi
 
-      # 步骤8：执行部署脚本
-      # 使用我们创建的deploy.sh脚本进行智能部署
-      - name: Execute deployment script
+      # 显示部署状态
+      - name: Show deployment status
+        if: always()
         run: |
-          # 设置环境变量
-          export KUBECONFIG=kubeconfig.yaml
-          export REGISTRY="${{ env.REGISTRY }}"
-          export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-          export IMAGE_TAG="latest"
-          export NAMESPACE="frps"
+          echo "📊 Pod 状态:"
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }} -o wide
+          echo ""
+          echo "📊 Service 状态:"
+          kubectl get svc -n ${{ env.K8S_NAMESPACE }}
+          echo ""
+          echo "📊 最近日志:"
+          kubectl logs -n ${{ env.K8S_NAMESPACE }} deployment/frps --tail=20 || true
 
-          # 传递腾讯云镜像仓库认证环境变量
-          export TENCENT_REGISTRY_USERNAME="${{ secrets.TENCENT_REGISTRY_USERNAME }}"
-          export TENCENT_REGISTRY_PASSWORD="${{ secrets.TENCENT_REGISTRY_PASSWORD }}"
-
-          # 可选：传递FRP配置环境变量
-          export FRP_DASHBOARD_PWD="${{ secrets.FRP_DASHBOARD_PWD }}"
-          export FRP_TOKEN="${{ secrets.FRP_TOKEN }}"
-
-          # 给部署脚本添加执行权限
-          chmod +x scripts/deploy.sh
-
-          # 执行部署脚本
-          ./scripts/deploy.sh
-
-      # 步骤9：部署后验证
-      # 验证部署是否成功，检查服务状态
-      - name: Post-deployment verification
-        shell: bash
-        run: |
-          source scripts/common.sh
-          export KUBECONFIG=kubeconfig.yaml
-
-          # 等待服务完全就绪
-          log_info "等待服务就绪..."
-          sleep 30
-
-          # 检查Pod状态和健康情况
-          log_info "检查Pod状态:"
-          kubectl get pods -n frps -o wide
-
-          # 检查服务状态
-          log_info "检查服务状态:"
-          kubectl get svc -n frps
-
-          # 检查部署状态
-          log_info "检查部署状态:"
-          kubectl get deployment -n frps
-
-          # 检查事件（用于排查问题）
-          log_info "检查最近事件:"
-          kubectl get events -n frps --sort-by='.lastTimestamp' | tail -10
-
-      # 步骤10：功能测试
-      # 测试FRPS服务是否正常工作
-      - name: Functional testing
-        shell: bash
-        run: |
-          source scripts/common.sh
-          export KUBECONFIG=kubeconfig.yaml
-
-          # 获取Pod名称
-          POD_NAME=$(kubectl get pods -n frps -l app=frps -o jsonpath='{.items[0].metadata.name}')
-
-          # 检查FRPS进程状态
-          log_info "检查FRPS进程状态:"
-          kubectl exec -n frps $POD_NAME -- ps aux | grep frps
-
-          # 检查端口监听状态
-          log_info "检查端口监听状态:"
-          kubectl exec -n frps $POD_NAME -- netstat -tlnp
-
-          # 检查配置文件
-          log_info "检查配置文件:"
-          kubectl exec -n frps $POD_NAME -- cat /etc/frp/frps.ini
-
-      # 步骤11：清理工作
-      # 清理临时文件和敏感信息
+      # 清理
       - name: Cleanup
-        shell: bash
         if: always()
         run: |
-          source scripts/common.sh
-          # 删除kubeconfig文件
-          rm -f kubeconfig.yaml
-
-          # 清理其他临时文件
-          rm -rf .docker
-
-          log_info "清理工作完成"
-
-      # 步骤12：部署结果通知
-      # 根据部署结果发送通知（可选）
-      - name: Deployment notification
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ FRPS部署成功！"
-            echo "🌐 服务地址: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-            echo "📅 部署时间: $(date)"
-          else
-            echo "❌ FRPS部署失败！"
-            echo "🔍 请检查GitHub Actions日志排查问题"
-          fi
+          rm -f $HOME/.kube/config
+          docker builder prune -af || true
+          echo "✅ 清理完成"

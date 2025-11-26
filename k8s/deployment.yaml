@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frps
+  namespace: frps
 spec:
   replicas: 1
   selector:
@@ -26,14 +27,12 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: frps
-          image: ccr.ccs.tencentyun.com/ray321/frps:latest
+          image: __IMAGE_NAME__:__IMAGE_TAG__
           ports:
             - containerPort: 7000
+              name: frp-bind
             - containerPort: 7500
-            - containerPort: 6001
-            - containerPort: 6002
-            - containerPort: 6003
-            - containerPort: 6004
+              name: dashboard
           resources:
             requests:
               memory: "128Mi"
@@ -94,4 +93,4 @@ spec:
               - key: frps.ini
                 path: frps.ini
       imagePullSecrets:
-        - name: tencent-registry-secret
+        - name: aliyun-acr-secret
