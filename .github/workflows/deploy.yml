@@ -10,7 +10,7 @@ on:
 env:
   # 项目基本信息
   PROJECT_NAME: frps
-  GITHUB_REPO: tt472625987/portal-frps
+  GITHUB_REPO: ray-sOrg/network-frps
 
   # 阿里云容器镜像服务配置
   ACR_REGION: cn-chengdu
