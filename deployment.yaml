@@ -1,0 +1,148 @@
+# ========================================
+# 🔧 FRPS 服务部署配置
+# ========================================
+# 说明：
+# 1. 使用 hostNetwork 模式直接暴露端口
+# 2. 端口范围 6001-6100 用于客户端连接
+# 3. 7000 为 FRP 主端口，7500 为 Dashboard
+# ========================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frps
+  labels:
+    name: frps
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frps-config
+  namespace: frps
+data:
+  frps.toml: |
+    bindPort = 7000
+    
+    # Dashboard 配置（用户名密码从 Secret 注入）
+    webServer.addr = "0.0.0.0"
+    webServer.port = 7500
+    
+    # 日志配置
+    log.to = "/var/log/frps.log"
+    log.level = "info"
+    log.maxDays = 7
+    
+    # 端口范围：6001-6100（预留 100 个端口）
+    allowPorts = [
+      { start = 6001, end = 6100 }
+    ]
+    
+    # 安全配置
+    auth.method = "token"
+    auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+    
+    # 性能配置
+    transport.maxPoolCount = 10
+    maxPortsPerClient = 0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frps-deployment
+  namespace: frps
+  labels:
+    app: frps
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: frps
+  template:
+    metadata:
+      labels:
+        app: frps
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      imagePullSecrets:
+        - name: aliyun-acr-secret
+      containers:
+        - name: frps
+          image: __IMAGE_NAME__:__IMAGE_TAG__
+          ports:
+            - containerPort: 7000
+              name: frp-bind
+            - containerPort: 7500
+              name: dashboard
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          env:
+            - name: FRPS_DASHBOARD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: dashboard_user
+            - name: FRPS_DASHBOARD_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: dashboard_pwd
+            - name: FRPS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: frps-secret
+                  key: token
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/frp/frps.toml
+              subPath: frps.toml
+          livenessProbe:
+            tcpSocket:
+              port: 7000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 7000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: config-volume
+          configMap:
+            name: frps-config
+            items:
+              - key: frps.toml
+                path: frps.toml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frps-service
+  namespace: frps
+spec:
+  type: ClusterIP
+  selector:
+    app: frps
+  ports:
+    - name: frp-bind
+      protocol: TCP
+      port: 7000
+      targetPort: 7000
+    - name: dashboard
+      protocol: TCP
+      port: 7500
+      targetPort: 7500

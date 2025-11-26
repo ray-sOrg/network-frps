@@ -2,10 +2,10 @@ name: 🚀 Build & Deploy FRPS
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
 
 # ========================================
-# 🔧 项目配置变量
+# 🔧 项目配置变量（复用到其他项目时只需修改这里）
 # ========================================
 env:
   # 项目基本信息
@@ -20,6 +20,7 @@ env:
 
   # Kubernetes 配置
   K8S_NAMESPACE: frps
+  K8S_DEPLOYMENT_FILE: deployment.yaml
 
   # 部署超时时间（秒）
   ROLLOUT_TIMEOUT: 180
@@ -94,7 +95,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      # 配置 K8s 访问（直接使用 KUBECONFIG，不需要 base64）
+      # 配置 K8s 访问
       - name: Configure cluster access
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
@@ -108,15 +109,10 @@ jobs:
           kubectl cluster-info --request-timeout=10s
           echo "✅ K8s 集群连接成功"
 
-      # 创建命名空间（如果不存在）
-      - name: Create namespace
-        run: |
-          kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-          echo "✅ 命名空间 ${{ env.K8S_NAMESPACE }} 已就绪"
-
       # 创建阿里云镜像拉取凭证
       - name: Create ACR Pull Secret
         run: |
+          kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
           kubectl delete secret aliyun-acr-secret -n ${{ env.K8S_NAMESPACE }} --ignore-not-found=true
           kubectl create secret docker-registry aliyun-acr-secret \
             --docker-server=${{ env.ACR_REGISTRY_PUBLIC }} \
@@ -125,7 +121,7 @@ jobs:
             --namespace=${{ env.K8S_NAMESPACE }}
           echo "✅ 阿里云镜像拉取凭证已创建"
 
-      # 创建 FRP 配置 Secret
+      # 创建 FRP Secrets
       - name: Create FRP Secrets
         run: |
           cat <<EOF | kubectl apply -f -
@@ -148,32 +144,27 @@ jobs:
           IMAGE=${{ needs.build.outputs.image }}
           TAG=${{ needs.build.outputs.tag }}
 
-          # 替换镜像地址
-          sed -i "s|__IMAGE_NAME__|$IMAGE|g" k8s/deployment.yaml
-          sed -i "s|__IMAGE_TAG__|$TAG|g" k8s/deployment.yaml
+          sed -i "s|__IMAGE_NAME__|$IMAGE|g" ${{ env.K8S_DEPLOYMENT_FILE }}
+          sed -i "s|__IMAGE_TAG__|$TAG|g" ${{ env.K8S_DEPLOYMENT_FILE }}
 
           echo "🚀 部署版本: $IMAGE:$TAG"
-
-          # 应用所有 K8s 配置
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/configmap.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          kubectl apply -f ${{ env.K8S_DEPLOYMENT_FILE }}
 
       # 检查部署状态
-      - name: Verify rollout
+      - name: Verify rollout & rollback if failed
         run: |
-          if kubectl rollout status deployment/frps -n ${{ env.K8S_NAMESPACE }} --timeout=${{ env.ROLLOUT_TIMEOUT }}s; then
+          DEPLOY_NAME=${{ env.PROJECT_NAME }}-deployment
+          if kubectl rollout status deployment/$DEPLOY_NAME -n ${{ env.K8S_NAMESPACE }} --timeout=${{ env.ROLLOUT_TIMEOUT }}s; then
             echo "✅ 部署成功"
           else
             echo "❌ 部署失败，开始回滚..."
-            kubectl rollout undo deployment/frps -n ${{ env.K8S_NAMESPACE }}
+            kubectl rollout undo deployment/$DEPLOY_NAME -n ${{ env.K8S_NAMESPACE }}
             echo "🩹 已回滚到上一个稳定版本"
             exit 1
           fi
 
-      # 显示部署状态
-      - name: Show deployment status
+      # 部署完成通知
+      - name: Notify Deployment Result
         if: always()
         run: |
           echo "📊 Pod 状态:"
@@ -181,14 +172,8 @@ jobs:
           echo ""
           echo "📊 Service 状态:"
           kubectl get svc -n ${{ env.K8S_NAMESPACE }}
-          echo ""
-          echo "📊 最近日志:"
-          kubectl logs -n ${{ env.K8S_NAMESPACE }} deployment/frps --tail=20 || true
 
-      # 清理
-      - name: Cleanup
-        if: always()
+      - name: Clean Docker BuildKit cache
         run: |
           rm -f $HOME/.kube/config
-          docker builder prune -af || true
-          echo "✅ 清理完成"
+          docker builder prune -af

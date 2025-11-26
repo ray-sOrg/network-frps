@@ -1,26 +1,11 @@
 FROM alpine:latest
 
-# 安装 curl
-RUN apk add --no-cache curl
+# 复制本地预下载的 frps 二进制文件
+COPY frps /usr/local/bin/frps
+RUN chmod +x /usr/local/bin/frps && mkdir -p /etc/frp /var/log
 
-# 设置 FRP 版本为 v0.64.0
-ENV FRP_VERSION=0.64.0
+# 暴露端口：7000(主端口) 7500(Dashboard)
+EXPOSE 7000 7500
 
-# 下载并安装 frps
-RUN curl -L https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_linux_amd64.tar.gz \
-    | tar xz -C /tmp && \
-    mv /tmp/frp_${FRP_VERSION}_linux_amd64/frps /usr/local/bin/frps && \
-    chmod +x /usr/local/bin/frps && \
-    rm -rf /tmp/frp_${FRP_VERSION}_linux_amd64
-
-# 创建配置目录
-RUN mkdir -p /etc/frp
-
-# 复制默认配置文件
-COPY frps.ini /etc/frp/frps.ini
-
-# 暴露常用端口（你可以根据 frps.ini 的配置暴露更多）
-EXPOSE 7000 7500 6001 6002 6003
-
-# 启动命令
-CMD ["frps", "-c", "/etc/frp/frps.ini"]
+# 启动命令（配置文件由 K8s ConfigMap 挂载）
+CMD ["frps", "-c", "/etc/frp/frps.toml"]
