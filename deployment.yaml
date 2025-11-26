@@ -22,12 +22,14 @@ metadata:
   name: frps-config
   namespace: frps
 data:
-  frps.toml: |
+  frps.toml.template: |
     bindPort = 7000
     
-    # Dashboard 配置（用户名密码从 Secret 注入）
+    # Dashboard 配置
     webServer.addr = "0.0.0.0"
     webServer.port = 7500
+    webServer.user = "${FRPS_DASHBOARD_USER}"
+    webServer.password = "${FRPS_DASHBOARD_PWD}"
     
     # 日志配置
     log.to = "/var/log/frps.log"
@@ -41,6 +43,7 @@ data:
     
     # 安全配置
     auth.method = "token"
+    auth.token = "${FRPS_TOKEN}"
     auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
     
     # 性能配置
@@ -77,6 +80,11 @@ spec:
       containers:
         - name: frps
           image: __IMAGE_NAME__:__IMAGE_TAG__
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              envsubst < /etc/frp/frps.toml.template > /etc/frp/frps.toml
+              exec frps -c /etc/frp/frps.toml
           ports:
             - containerPort: 7000
               name: frp-bind
@@ -107,8 +115,8 @@ spec:
                   key: token
           volumeMounts:
             - name: config-volume
-              mountPath: /etc/frp/frps.toml
-              subPath: frps.toml
+              mountPath: /etc/frp/frps.toml.template
+              subPath: frps.toml.template
           livenessProbe:
             tcpSocket:
               port: 7000
@@ -124,8 +132,8 @@ spec:
           configMap:
             name: frps-config
             items:
-              - key: frps.toml
-                path: frps.toml
+              - key: frps.toml.template
+                path: frps.toml.template
 
 ---
 apiVersion: v1
@@ -146,3 +154,31 @@ spec:
       protocol: TCP
       port: 7500
       targetPort: 7500
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frps-ingress
+  namespace: frps
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - frps.tt829.cn
+      secretName: frps-tls
+  rules:
+    - host: frps.tt829.cn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frps-service
+                port:
+                  number: 7500
