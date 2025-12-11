@@ -1,0 +1,47 @@
+# ========================================
+# 📷 Immich Ingress 配置
+# ========================================
+# photo.tt829.cn → frpc 6005 → 本地 2283
+# ========================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-service
+  namespace: frps
+spec:
+  type: ClusterIP
+  selector:
+    app: frps
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 6005
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: immich-ingress
+  namespace: frps
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10240m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - photo.tt829.cn
+      secretName: immich-tls
+  rules:
+    - host: photo.tt829.cn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: immich-service
+                port:
+                  number: 80

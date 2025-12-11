@@ -1,0 +1,47 @@
+# ========================================
+# ☁️ Nextcloud Ingress 配置
+# ========================================
+# cloud.tt829.cn → frpc 6004 → 本地 8081
+# ========================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud-service
+  namespace: frps
+spec:
+  type: ClusterIP
+  selector:
+    app: frps
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 6004
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud-ingress
+  namespace: frps
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10240m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - cloud.tt829.cn
+      secretName: nextcloud-tls
+  rules:
+    - host: cloud.tt829.cn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nextcloud-service
+                port:
+                  number: 80
