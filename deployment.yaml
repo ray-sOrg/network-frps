@@ -73,7 +73,7 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:
-        - name: aliyun-acr-secret
+        - name: tencent-tcr-secret
       containers:
         - name: frps
           image: __IMAGE_NAME__:__IMAGE_TAG__
