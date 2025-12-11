@@ -18,7 +18,7 @@ env:
 
   # Kubernetes 配置
   K8S_NAMESPACE: frps
-  K8S_DEPLOYMENT_FILE: deployment.yaml
+  K8S_DEPLOYMENT_FILES: "deployment.yaml mp-ingress.yaml cloud-ingress.yaml photo-ingress.yaml"
 
   # 部署超时时间（秒）
   ROLLOUT_TIMEOUT: 180
@@ -150,11 +150,19 @@ jobs:
           IMAGE=${{ needs.build.outputs.image }}
           TAG=${{ needs.build.outputs.tag }}
 
-          sed -i "s|__IMAGE_NAME__|$IMAGE|g" ${{ env.K8S_DEPLOYMENT_FILE }}
-          sed -i "s|__IMAGE_TAG__|$TAG|g" ${{ env.K8S_DEPLOYMENT_FILE }}
+          # 替换镜像占位符
+          for file in ${{ env.K8S_DEPLOYMENT_FILES }}; do
+            sed -i "s|__IMAGE_NAME__|$IMAGE|g" $file
+            sed -i "s|__IMAGE_TAG__|$TAG|g" $file
+          done
 
           echo "🚀 部署版本: $IMAGE:$TAG"
-          kubectl apply -f ${{ env.K8S_DEPLOYMENT_FILE }}
+          
+          # 部署所有 K8s 配置文件
+          for file in ${{ env.K8S_DEPLOYMENT_FILES }}; do
+            echo "📦 部署: $file"
+            kubectl apply -f $file
+          done
 
       # 检查部署状态
       - name: Verify rollout & rollback if failed
